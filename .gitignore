@@ -1,0 +1,5 @@
+.idea
+node_modules
+dist/webarc.js
+asm/*.bin
+asm/*.elf
