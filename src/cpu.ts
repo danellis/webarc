@@ -16,6 +16,8 @@ const Z_BIT = 1 << 30;
 const C_BIT = 1 << 29;
 const V_BIT = 1 << 28;
 
+const COND_STRINGS = ['EQ', 'NE', 'CS', 'CC', 'MI', 'PL', 'VS', 'VC', 'HI', 'LS', 'GE', 'LT', 'GT', 'LE', '', 'NV'];
+
 class UndefinedInstruction {}
 
 export class Cpu {
@@ -29,6 +31,10 @@ export class Cpu {
 
         // Start executing from the reset vector (accounting for pipeline offset)
         this.registers.set(15, RESET_VECTOR + 8);
+    }
+
+    run() {
+        for (;;) this.step();
     }
 
     step() {
@@ -46,8 +52,8 @@ export class Cpu {
             if (instruction === null) {
                 Cpu.undefinedInstruction();
             } else {
-                console.debug(`0x${fetchAddress.toString(16)} ${instruction.stringify(fetchAddress, fetchedWord)}`);
-                instruction.exec(fetchedWord, this);
+                console.debug(`0x${fetchAddress.toString(16)} ${instruction.stringify(fetchAddress, COND_STRINGS[cond], fetchedWord)}`);
+                instruction.exec(this, fetchedWord);
             }
         } else {
             console.debug("Skipping because of unmet condition")
