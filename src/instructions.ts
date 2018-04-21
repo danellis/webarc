@@ -28,7 +28,7 @@ class BranchInstruction implements Instruction {
 
         let offset = (instruction & 0x00ffffff) << 2;
         console.debug("Offset = 0x" + offset.toString(16));
-        cpu.registers.pc = (pc + offset + 8) & 0x03ffffff;
+        cpu.registers.pc = (pc + offset) & 0x03ffffff;
     }
 
     stringify(address: number, cond: string, instruction: number): string {
