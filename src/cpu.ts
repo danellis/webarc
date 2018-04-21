@@ -1,4 +1,4 @@
-import { InstructionDecoder } from './instructions';
+import { Instruction, InstructionDecoder } from './instructions';
 import { RegisterFile } from './registers';
 import { Memory } from './memory';
 
@@ -23,10 +23,12 @@ class UndefinedInstruction {}
 export class Cpu {
     registers = new RegisterFile();
     memory: Memory;
+    debugElement: HTMLElement;
 
     private decoder = new InstructionDecoder();
 
     constructor(romData: ArrayBuffer) {
+        this.debugElement = document.getElementById('debugoutput');
         this.memory = new Memory(romData);
 
         // Start executing from the reset vector (accounting for pipeline offset)
@@ -39,29 +41,27 @@ export class Cpu {
 
     step() {
         let fetchAddress = this.registers.pc - 8;
-
         let fetchedWord = this.memory.load(fetchAddress);
-        console.debug(`Fetched: ${fetchedWord.toString(16)}`);
-
         let instruction = this.decoder.decode(fetchedWord);
-
         let cond = fetchedWord >>> 28;
+        this.logInstruction(fetchAddress, fetchedWord, cond, instruction);
 
         let pcBefore = this.registers.pc;
+
         if (Cpu.conditionMet(cond, this.registers.get(15))) {
             if (instruction === null) {
                 Cpu.undefinedInstruction();
             } else {
-                console.debug(`0x${fetchAddress.toString(16)} ${instruction.stringify(fetchAddress, COND_STRINGS[cond], fetchedWord)}`);
                 instruction.exec(this, fetchedWord);
             }
-        } else {
-            console.debug("Skipping because of unmet condition")
         }
 
         if (this.registers.pc == pcBefore) {
+            // Increment PC to next instruction
             this.registers.pc += 4;
         } else {
+            // Pipeline would usually be flushed here, but we don't have one
+            // PC has the address of the next instruction, so add 8 to simulate pipeline's effect
             this.registers.pc += 8;
         }
     }
@@ -101,5 +101,21 @@ export class Cpu {
 
     private static undefinedInstruction(): void {
         throw new UndefinedInstruction;
+    }
+
+    private static hex(n: number): string {
+        return ("0000000" + n.toString(16)).substr(-8)
+    }
+
+    private log(s: string): void {
+        this.debugElement.innerText += s + '\n';
+    }
+
+    private logInstruction(fetchAddress: number, fetchedWord: number, cond: number, instruction: Instruction): void {
+        let condString = COND_STRINGS[cond];
+        let stringified = instruction ? instruction.stringify(fetchAddress, condString, fetchedWord) : `...${condString}`;
+        let logLine = `${Cpu.hex(fetchAddress)}  ${Cpu.hex(fetchedWord)}  ${stringified}`;
+        console.debug(logLine);
+        this.log(logLine);
     }
 }

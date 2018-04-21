@@ -49,7 +49,7 @@ class AluInstruction implements Instruction {
     }
 
     stringify(address: number, cond: string, instruction: number): string {
-        return `xxx${cond} ; ALU instruction`
+        return `...${cond} ; ALU instruction`
     }
 }
 
@@ -125,17 +125,17 @@ class LoadStoreInstruction implements Instruction {
             let shift = '';
             if (shiftAmount > 0) {
                 switch (shiftType) {
-                    case 0b00: shift = `LSL ${shiftAmount}`; return;
-                    case 0b01: shift = `LSR ${shiftAmount}`; return;
-                    case 0b10: shift = `ASR ${shiftAmount}`; return;
-                    case 0b11: shift = `ROR ${shiftAmount}`; return;
+                    case 0b00: shift = ` LSL ${shiftAmount}`; break;
+                    case 0b01: shift = ` LSR ${shiftAmount}`; break;
+                    case 0b10: shift = ` ASR ${shiftAmount}`; break;
+                    case 0b11: shift = ` ROR ${shiftAmount}`; break;
                 }
             }
 
             if (preIndexing) {
-                op2 = `[R${baseReg}, ${minus}${op2Reg}${shift}]${pling}`
+                op2 = `[R${baseReg}, ${minus}R${op2Reg}${shift}]${pling}`
             } else {
-                op2 = `[R${baseReg}], ${minus}${op2Reg}${shift}`
+                op2 = `[R${baseReg}], ${minus}R${op2Reg}${shift}`
             }
         } else {
             let offset = instruction & 0xfff;
