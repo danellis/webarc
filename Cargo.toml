@@ -1,0 +1,6 @@
+[package]
+name = "webarc"
+version = "0.1.0"
+authors = ["Dan Ellis <dan@danellis.me>"]
+
+[dependencies]

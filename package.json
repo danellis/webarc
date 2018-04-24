@@ -12,9 +12,11 @@
     "author": "Dan Ellis",
     "license": "MIT",
     "dependencies": {
+        "rust-wasm-loader": "^0.1.2",
         "ts-loader": "^4.2.0",
         "typescript": "^2.8.1",
-        "webpack": "^4.6.0"
+        "webpack": "^4.6.0",
+        "webplatform": "^1.0.131"
     },
     "devDependencies": {
         "webpack-cli": "^2.0.14",

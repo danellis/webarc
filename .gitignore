@@ -1,5 +1,9 @@
 .idea
 node_modules
 dist/webarc.js
+dist/*.wasm
 asm/*.bin
 asm/*.elf
+*.log
+/target
+**/*.rs.bk
