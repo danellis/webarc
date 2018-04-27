@@ -9,27 +9,27 @@ pub trait Instruction {
 
 pub struct InstructionDecoder {
     branch: BranchInstruction,
-//    alu: AluInstruction,
-//    load_store: LoadStoreInstruction
+    alu: AluInstruction,
+    load_store: LoadStoreInstruction
 }
 
 impl InstructionDecoder {
     pub fn new() -> InstructionDecoder {
         InstructionDecoder {
             branch: BranchInstruction {},
-//            AluInstruction::new(),
-//            LoadStoreInstruction::new()
+            alu: AluInstruction {},
+            load_store: LoadStoreInstruction {}
         }
     }
 
     pub fn decode(&self, word: u32) -> Option<&Instruction> {
         if (word & 0x0e000000) == 0x0a000000 {
             Some(&self.branch)
-        } /* else if (word & 0x0c000000) == 0x00000000 {
-            Some(self.alu)
+        } else if (word & 0x0c000000) == 0x00000000 {
+            Some(&self.alu)
         } else if (word & 0x0c000000) == 0x04000000 {
-            Some(self.load_store)
-        } */ else {
+            Some(&self.load_store)
+        } else {
             None
         }
     }
@@ -61,117 +61,121 @@ impl Instruction for BranchInstruction {
     }
 }
 
-//class AluInstruction implements Instruction {
-//    exec(cpu: Cpu, instruction: number): void {
-//
-//    }
-//
-//    stringify(address: number, cond: string, instruction: number): string {
-//        return `...${cond} ; ALU instruction`
-//    }
-//}
-//
+struct AluInstruction;
+impl Instruction for AluInstruction {
+    fn exec(&self, registers: &mut RegisterFile, memory: &mut Memory, instruction: u32) {
+
+    }
+
+    fn stringify(&self, address: u32, cond: &str, instruction: u32) -> String {
+        format!("...{} ; ALU instruction", cond)
+    }
+}
+
+struct LoadStoreInstruction;
+impl Instruction for LoadStoreInstruction {
+    fn exec(&self, registers: &mut RegisterFile, memory: &mut Memory, instruction: u32) {
+        let op2_is_reg = (instruction & 1 << 25) != 0;
+        let pre_indexing = (instruction & 1 << 24) != 0;
+        let positive_offset = (instruction & 1 << 23) != 0;
+        let byte_transfer = (instruction & 1 << 22) != 0;
+        let write_back = (instruction & 1 << 21) != 0 || !pre_indexing;
+        let is_load = (instruction & 1 << 20) != 0;
+
+        let base_reg = (instruction >> 16) & 0xf;
+        let base = registers.reg_no_flags(base_reg as usize);
+        let sd_reg = (instruction >> 12) & 0xf;
+
+        let offset= if op2_is_reg {
+            let shift_amount = (instruction >> 7) & 0x1f;
+            let shift_type = (instruction >> 5) & 0x3;
+            let op2_reg = instruction & 0xf;
+            let unshifted = registers.reg(op2_reg as usize);
+
+            match shift_type {
+                0b00 => unshifted << shift_amount,
+                0b01 => (unshifted as i32 >> shift_amount) as u32,
+                0b10 => unshifted >> shift_amount,
+                0b11 => (instruction >> shift_amount) | (instruction << (32 - shift_amount)),
+                _ => unreachable!()
+            }
+        } else {
+            instruction & 0xfff
+        };
+
+        let signed_offset = if positive_offset { offset as i32 } else { -(offset as i32) };
+        let address = (base as i32 + if pre_indexing { signed_offset } else { 0 }) as u32;
+
+        if byte_transfer {
+            if is_load {
+                registers.set_reg_no_flags(sd_reg as usize, memory.load_byte(address) as u32);
+            } else {
+                memory.store_byte(address, registers.reg(sd_reg as usize) as u8);
+            }
+        } else {
+            if is_load {
+                registers.set_reg_no_flags(sd_reg as usize, memory.load(address));
+            } else {
+                memory.store(address, registers.reg(sd_reg as usize));
+            }
+        }
+
+        if write_back {
+            registers.set_reg(base_reg as usize, address + if pre_indexing { 0 } else { offset });
+        }
+    }
+
+    fn stringify(&self, address: u32, cond: &str, instruction: u32) -> String {
+        const SHIFT_MNEMONICS: [&str; 4] = ["LSL", "LSR", "ASR", "ROR"];
+
+        let op2_is_reg = (instruction & 1 << 25) != 0;
+        let pre_indexing = (instruction & 1 << 24) != 0;
+        let base_reg = (instruction >> 16) & 0xf;
+        let sd_reg = (instruction >> 12) & 0xf;
+
+        let mnemonic = if instruction & 1 << 20 != 0 { "LDR" } else { "STR" };
+        let b = if instruction & 1 << 22 != 0 { "B" } else { "" };
+        let minus = if instruction & 1 << 23 != 0 { "" } else { "-" };
+        let pling = if instruction & 1 << 21 != 0 { "!" } else { "" };
+
+        let op2 = if op2_is_reg {
+            let shift_amount = (instruction >> 7) & 0x1f;
+            let shift_type = (instruction >> 5) & 0x3;
+            let op2_reg = instruction & 0xf;
+
+            let shift = if shift_amount > 0 {
+                format!(" {} {}", SHIFT_MNEMONICS[shift_type as usize], shift_amount)
+            } else {
+                "".to_owned()
+            };
+
+            if pre_indexing {
+                format!("[R{}, {}R{}{}]{}", base_reg, minus, op2_reg, shift, pling)
+            } else {
+                format!("[R{}], {}R{}{}", base_reg, minus, op2_reg, shift)
+            }
+        } else {
+            let offset = instruction & 0xfff;
+
+            if pre_indexing {
+                if offset == 0 {
+                    format!("[R{}]{}", base_reg, pling)
+                } else {
+                    format!("[R{}, {}{}]{}", base_reg, minus, offset, pling)
+                }
+            } else {
+                if offset == 0 {
+                    format!("[R{}]", base_reg)
+                } else {
+                    format!("[R{}], {}{}", base_reg, minus, offset)
+                }
+            }
+        };
+
+        format!("{}{}{} R{}, {}", mnemonic, cond, b, sd_reg, op2)
+    }
+}
+
 //class LoadStoreInstruction implements Instruction {
-//    exec(cpu: Cpu, instruction: number): void {
-//        let op2IsReg = !!(instruction & 1 << 25);
-//        let preIndexing = !!(instruction & 1 << 24);
-//        let positiveOffset = !!(instruction & 1 << 23);
-//        let byteTransfer = !!(instruction & 1 << 22);
-//        let writeBack = !!(instruction & 1 << 21) || !preIndexing;
-//        let isLoad = !!(instruction & 1 << 20);
-//
-//        let baseReg = (instruction >> 16) & 0xf;
-//        let base = cpu.registers.getWithoutPsr(baseReg);
-//        let sdReg = (instruction >> 12) & 0xf;
-//
-//        let offset;
-//        if (op2IsReg) {
-//            let shiftAmount = (instruction >> 7) & 0x1f;
-//            let shiftType = (instruction >> 5) & 0x3;
-//            let op2Reg = instruction & 0xf;
-//            let unshifted = cpu.registers.get(op2Reg);
-//
-//            switch (shiftType) {
-//                case 0b00: offset = unshifted << shiftAmount; break;
-//                case 0b01: offset = unshifted >>> shiftAmount; break;
-//                case 0b10: offset = unshifted >> shiftAmount; break;
-//                case 0b11:
-//                    offset = (instruction >> shiftAmount) | (instruction << (32 - shiftAmount));
-//                    break;
-//            }
-//        } else {
-//            offset = instruction & 0xfff;
-//        }
-//
-//        if (!positiveOffset) offset = -offset;
-//
-//        let address = base + (preIndexing ? offset : 0);
-//        if (byteTransfer) {
-//            if (isLoad) {
-//                cpu.registers.setWithoutPsr(sdReg, cpu.memory.loadByte(address));
-//            } else {
-//                cpu.memory.storeByte(address, cpu.registers.get(sdReg));
-//            }
-//        } else {
-//            if (isLoad) {
-//                cpu.registers.setWithoutPsr(sdReg, cpu.memory.load(address));
-//            } else {
-//                cpu.memory.store(address, cpu.registers.get(sdReg));
-//            }
-//        }
-//
-//        if (writeBack) cpu.registers.set(baseReg, address + (preIndexing ? 0 : offset));
-//    }
-//
 //    stringify(address: number, cond: string, instruction: number): string {
-//        let op2IsReg = !!(instruction & 1 << 25);
-//        let preIndexing = !!(instruction & 1 << 24);
-//        let baseReg = (instruction >> 16) & 0xf;
-//        let sdReg = (instruction >> 12) & 0xf;
-//
-//        let mnemonic = !!(instruction & 1 << 20) ? 'LDR' : 'STR';
-//        let b = !!(instruction & 1 << 22) ? 'B' : '';
-//        let minus = !!(instruction & 1 << 23) ? '' : '-';
-//        let pling = !!(instruction & 1 << 21) ? '!' : '';
-//
-//        let op2;
-//        if (op2IsReg) {
-//            let shiftAmount = (instruction >> 7) & 0x1f;
-//            let shiftType = (instruction >> 5) & 0x3;
-//            let op2Reg = instruction & 0xf;
-//
-//            let shift = '';
-//            if (shiftAmount > 0) {
-//                switch (shiftType) {
-//                    case 0b00: shift = ` LSL ${shiftAmount}`; break;
-//                    case 0b01: shift = ` LSR ${shiftAmount}`; break;
-//                    case 0b10: shift = ` ASR ${shiftAmount}`; break;
-//                    case 0b11: shift = ` ROR ${shiftAmount}`; break;
-//                }
-//            }
-//
-//            if (preIndexing) {
-//                op2 = `[R${baseReg}, ${minus}R${op2Reg}${shift}]${pling}`
-//            } else {
-//                op2 = `[R${baseReg}], ${minus}R${op2Reg}${shift}`
-//            }
-//        } else {
-//            let offset = instruction & 0xfff;
-//
-//            if (preIndexing) {
-//                if (offset == 0) {
-//                    op2 = `[R${baseReg}]${pling}`;
-//                } else {
-//                    op2 = `[R${baseReg}, ${minus}${offset}]${pling}`;
-//                }
-//            } else {
-//                if (offset == 0) {
-//                    op2 = `[R${baseReg}]`;
-//                } else {
-//                    op2 = `[R${baseReg}], ${minus}${offset}`;
-//                }
-//            }
-//        }
-//
-//        return `${mnemonic}${cond}${b} R${sdReg}, ${op2}`;
 //    }
