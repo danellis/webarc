@@ -1,9 +1,8 @@
-mod webarc;
-mod boot;
-
 use std::fs::File;
 use std::io::prelude::*;
-use boot::boot;
+use webarc::boot::boot;
+
+mod webarc;
 
 #[cfg(not(target_os = "emscripten"))]
 fn main() {
@@ -16,7 +15,7 @@ fn main() {
     println!("Reading ROM file");
     f.read(as_u8_slice(&mut rom));
 
-    boot::boot(rom.into_boxed_slice());
+    boot(rom.into_boxed_slice());
 }
 
 #[cfg(target_os = "emscripten")]

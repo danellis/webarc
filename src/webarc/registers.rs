@@ -46,8 +46,8 @@ impl RegisterFile {
         }
     }
 
-    fn offset(&self, reg: usize) -> usize {
-        if reg == 15 {
+    fn index(&self, reg: u32) -> usize {
+        (if reg == 15 {
             15
         } else {
             match self.mode() {
@@ -56,30 +56,34 @@ impl RegisterFile {
                 Mode::Irq => if reg >= 13 { reg + 10 } else { reg },
                 Mode::Svc => if reg >= 13 { reg + 12 } else { reg }
             }
-        }
+        }) as usize
     }
 
-    pub fn set_reg(&mut self, reg: usize, value: u32) {
-        self.registers[self.offset(reg)] = value;
+    // Get register for current mode
+    pub fn reg(&self, reg: u32) -> u32 {
+        self.registers[self.index(reg)]
     }
 
-    pub fn reg(&self, reg: usize) -> u32 {
-        self.registers[self.offset(reg)]
+    // Set register for current mode
+    pub fn set_reg(&mut self, reg: u32, value: u32) {
+        self.registers[self.index(reg)] = value;
     }
 
-    pub fn set_reg_no_flags(&mut self, reg: usize, value: u32) {
-        if reg == 15 {
-            self.registers[15] = (self.registers[15] & !0x03fffffc) | (value & 0x03fffffc);
-        } else {
-            self.set_reg(reg, value);
-        }
-    }
-
-    pub fn reg_no_flags(&self, reg: usize) -> u32 {
+    // Get register for current mode (without mode or status flags for PC)
+    pub fn reg_no_flags(&self, reg: u32) -> u32 {
         if reg == 15 {
             self.registers[15] & 0x03fffffc
         } else {
             self.reg(reg)
+        }
+    }
+
+    // Set register for current mode (without changing mode or status flags for PC)
+    pub fn set_reg_no_flags(&mut self, reg: u32, value: u32) {
+        if reg == 15 {
+            self.registers[15] = (self.registers[15] & !0x03fffffc) | (value & 0x03fffffc);
+        } else {
+            self.set_reg(reg, value);
         }
     }
 

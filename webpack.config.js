@@ -15,12 +15,17 @@ module.exports = {
             },
             {
                 test: /\.rs$/,
-                use: {
-                    loader: 'rust-wasm-loader',
-                    options: {
-                        path: './build'
+                use: [
+                    {
+                        loader: 'wasm-loader',
+                    },
+                    {
+                        loader: 'rust-native-wasm-loader',
+                        options: {
+                            release: true
+                        }
                     }
-                }
+                ]
             }
         ]
     },
