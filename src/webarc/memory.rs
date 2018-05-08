@@ -36,11 +36,11 @@ impl Memory {
             self.ram[((masked_address - 0x02000000) / 4) as usize]
         } else if masked_address < 0x03400000 {
             // console.debug("Fetching from I/O controllers");
-            unimplemented!()
+            unimplemented!("Reading from I/O controllers")
         } else if masked_address < 0x03800000 {
             // console.debug("Fetching from low ROM");
             self.rom_mapped = false;
-            unimplemented!()
+            unimplemented!("Low ROM")
         } else {
             // High ROM
             self.rom_mapped = false;
@@ -48,9 +48,27 @@ impl Memory {
         }
     }
 
-    pub fn store(&self, _address: u32, _data: u32) {
-//        let masked_address = address & 0x03fffffc;
-        unimplemented!()
+    pub fn store(&mut self, address: u32, _data: u32) {
+        let masked_address = address & 0x03fffffc;
+        println!("Store address: {:08X}", masked_address);
+
+        // Logically mapped RAM unless ROM is mapped low
+        if masked_address < 0x02000000 {
+            unimplemented!("Writing to logically mapped RAM");
+        } else if masked_address < 0x03000000 {
+            unimplemented!("Writing to physically mapped RAM");
+        } else if masked_address < 0x03400000 {
+            // console.debug("Fetching from I/O controllers");
+            unimplemented!("Writing to I/O controllers")
+        } else if masked_address < 0x03600000 {
+            unimplemented!("Writing to VIDC");
+        } else if masked_address < 0x03800000 {
+            self.rom_mapped = false;
+            unimplemented!("Writing to DMA/MEMC");
+        } else {
+            self.rom_mapped = false;
+            unimplemented!("Writing to L2P address translator");
+        }
     }
 
     pub fn load_byte(&mut self, address: u32) -> u8 {
